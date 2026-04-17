@@ -314,6 +314,24 @@ body::before {
   filter: none;
 }
 
+/* Export Button */
+.btn-export {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: var(--accent);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-export:hover {
+  background: rgba(0,229,255,0.15);
+  border-color: var(--accent);
+}
+
 /* Custom Input */
 .custom-input {
   width: 100%;

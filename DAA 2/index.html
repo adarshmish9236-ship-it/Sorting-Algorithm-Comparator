@@ -40,6 +40,8 @@
         <button class="algo-btn" data-algo="merge">Merge</button>
         <button class="algo-btn" data-algo="heap">Heap</button>
         <button class="algo-btn" data-algo="shell">Shell</button>
+        <button class="algo-btn" data-algo="counting">Counting</button>
+        <button class="algo-btn" data-algo="radix">Radix</button>
       </div>
 
       <!-- Compare Mode Second Algorithm (hidden by default) -->
@@ -53,6 +55,8 @@
           <button class="algo-btn" data-algo="merge">Merge</button>
           <button class="algo-btn" data-algo="heap">Heap</button>
           <button class="algo-btn" data-algo="shell">Shell</button>
+          <button class="algo-btn" data-algo="counting">Counting</button>
+          <button class="algo-btn" data-algo="radix">Radix</button>
         </div>
       </div>
 
@@ -78,6 +82,8 @@
         <button class="pattern-btn" data-pattern="nearly">Nearly Sorted</button>
         <button class="pattern-btn" data-pattern="reversed">Reversed</button>
         <button class="pattern-btn" data-pattern="few">Few Unique</button>
+        <button class="pattern-btn" data-pattern="gaussian">Gaussian</button>
+        <button class="pattern-btn" data-pattern="sawtooth">Sawtooth</button>
         <button class="pattern-btn" data-pattern="custom" style="grid-column: span 2;">Custom Array</button>
       </div>
       
@@ -116,6 +122,7 @@
             <span class="stat-chip" id="liveComps">Comparisons: 0</span>
             <span class="stat-chip" id="liveSwaps">Swaps: 0</span>
             <span class="stat-chip" id="liveTime">Time: 0 ms</span>
+            <span class="stat-chip" id="liveStack">Stack Max: 0</span>
           </div>
         </div>
         <div class="bars-container" id="barsA"></div>
@@ -130,6 +137,7 @@
               <span class="stat-chip" id="liveCompsA">Comparisons: 0</span>
               <span class="stat-chip" id="liveSwapsA">Swaps: 0</span>
               <span class="stat-chip" id="liveTimeA">Time: 0 ms</span>
+              <span class="stat-chip" id="liveStackA">Stack Max: 0</span>
             </div>
           </div>
           <div class="bars-container" id="barsB"></div>
@@ -141,6 +149,7 @@
               <span class="stat-chip" id="liveCompsB">Comparisons: 0</span>
               <span class="stat-chip" id="liveSwapsB">Swaps: 0</span>
               <span class="stat-chip" id="liveTimeB">Time: 0 ms</span>
+              <span class="stat-chip" id="liveStackB">Stack Max: 0</span>
             </div>
           </div>
           <div class="bars-container" id="barsC"></div>
@@ -149,7 +158,10 @@
 
       <!-- Performance Table -->
       <section class="perf-section">
-        <div class="perf-title">Performance Analysis</div>
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <div class="perf-title" style="margin-bottom: 0;">Performance Analysis</div>
+          <button class="btn-export" id="exportBtn">Export CSV</button>
+        </div>
         <div class="perf-cards" id="perfCards">
           <!-- Filled by JS -->
         </div>

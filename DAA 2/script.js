@@ -12,6 +12,8 @@ const ALGO_META = {
   merge:     { name: 'Merge Sort',     best: 'O(n log n)',avg: 'O(n log n)', worst: 'O(n log n)', space: 'O(n)'    },
   heap:      { name: 'Heap Sort',      best: 'O(n log n)',avg: 'O(n log n)', worst: 'O(n log n)', space: 'O(1)'    },
   shell:     { name: 'Shell Sort',     best: 'O(n log n)',avg: 'O(n(log n)²)',worst: 'O(n²)',     space: 'O(1)'    },
+  counting:  { name: 'Counting Sort',  best: 'O(n+k)',    avg: 'O(n+k)',     worst: 'O(n+k)',     space: 'O(k)'    },
+  radix:     { name: 'Radix Sort',     best: 'O(nk)',     avg: 'O(nk)',      worst: 'O(nk)',      space: 'O(n+k)'  },
 };
 
 /* ── State ──────────────────────────────────────────────── */
@@ -50,15 +52,19 @@ const vizLabel      = $('vizLabel');
 const liveComps     = $('liveComps');
 const liveSwaps     = $('liveSwaps');
 const liveTime      = $('liveTime');
+const liveStack     = $('liveStack');
 const vizLabelA     = $('vizLabelA');
 const liveCompsA    = $('liveCompsA');
 const liveSwapsA    = $('liveSwapsA');
 const liveTimeA     = $('liveTimeA');
+const liveStackA    = $('liveStackA');
 const vizLabelB     = $('vizLabelB');
 const liveCompsB    = $('liveCompsB');
 const liveSwapsB    = $('liveSwapsB');
 const liveTimeB     = $('liveTimeB');
+const liveStackB    = $('liveStackB');
 const perfCards     = $('perfCards');
+const exportBtn     = $('exportBtn');
 const compareAlgoSection = $('compareAlgoSection');
 const customDataSection  = $('customDataSection');
 const customInput        = $('customInput');
@@ -124,6 +130,29 @@ function fewUniqueArray(n) {
   return Array.from({ length: n }, () => vals[Math.floor(Math.random() * vals.length)]);
 }
 
+function gaussianArray(n) {
+  return Array.from({ length: n }, () => {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    let val = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    val = val / 10.0 + 0.5; // Translate to 0 -> 1
+    if (val < 0) val = 0;
+    if (val > 1) val = 1;
+    return Math.max(2, Math.floor(val * 100));
+  });
+}
+
+function sawtoothArray(n) {
+  const result = [];
+  const teeth = 4;
+  for (let i = 0; i < n; i++) {
+    const pct = (i % (n / teeth)) / (n / teeth);
+    result.push(Math.max(2, Math.floor(pct * 100)));
+  }
+  return result;
+}
+
 function generateArray(n, pattern) {
   if (pattern === 'custom') {
     let vals = customInput.value.split(',').map(v => parseInt(v.trim(), 10)).filter(v => !isNaN(v));
@@ -135,6 +164,8 @@ function generateArray(n, pattern) {
     case 'nearly':   return nearlySortedArray(n);
     case 'reversed': return reversedArray(n);
     case 'few':      return fewUniqueArray(n);
+    case 'gaussian': return gaussianArray(n);
+    case 'sawtooth': return sawtoothArray(n);
     default:         return randomArray(n);
   }
 }
@@ -178,10 +209,11 @@ function markAllSorted(container, arr) {
 }
 
 /* ── Live Stats Update ──────────────────────────────────── */
-function updateStats(compsEl, swapsEl, timeEl, comps, swaps, ms) {
+function updateStats(compsEl, swapsEl, timeEl, stackEl, comps, swaps, ms, stack) {
   compsEl.textContent = `Comparisons: ${comps.toLocaleString()}`;
   swapsEl.textContent = `Swaps: ${swaps.toLocaleString()}`;
   timeEl.textContent  = `Time: ${ms} ms`;
+  if (stackEl) stackEl.textContent = `Stack Max: ${stack}`;
 }
 
 /* ── Performance Cards ──────────────────────────────────── */
@@ -201,6 +233,7 @@ function buildPerfCards(results) {
         <tr><td>Time</td>    <td class="val-live">${r.time !== null ? r.time + ' ms' : '—'}</td></tr>
         <tr><td>Comparisons</td><td class="val-live">${r.comps !== null ? r.comps.toLocaleString() : '—'}</td></tr>
         <tr><td>Swaps</td>   <td class="val-live">${r.swaps !== null ? r.swaps.toLocaleString() : '—'}</td></tr>
+        <tr><td>Max Stack</td><td class="val-live">${r.stack !== null ? r.stack : '—'}</td></tr>
       </table>`;
     perfCards.appendChild(card);
   });
@@ -208,10 +241,10 @@ function buildPerfCards(results) {
 
 function initPerfCards() {
   const algos = state.mode === 'single'
-    ? [{ algo: state.algoA, time: null, comps: null, swaps: null, highlight: true }]
+    ? [{ algo: state.algoA, time: null, comps: null, swaps: null, stack: null, highlight: true }]
     : [
-        { algo: state.algoA, time: null, comps: null, swaps: null, highlight: true },
-        { algo: state.algoB, time: null, comps: null, swaps: null, highlight: false },
+        { algo: state.algoA, time: null, comps: null, swaps: null, stack: null, highlight: true },
+        { algo: state.algoB, time: null, comps: null, swaps: null, stack: null, highlight: false },
       ];
   buildPerfCards(algos);
 }
@@ -263,7 +296,7 @@ async function bubbleSort(arr, container, s, el) {
       if (state.stopFlag) return false;
       s.comps++;
       renderBars(container, arr, { active: [j, j + 1], sorted: [...sorted] });
-      updateStats(el.comps, el.swaps, el.time, s.comps, s.swaps, Date.now() - s.start);
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
       if (arr[j] > arr[j + 1]) {
         [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
         s.swaps++;
@@ -288,7 +321,7 @@ async function selectionSort(arr, container, s, el) {
       if (state.stopFlag) return false;
       s.comps++;
       renderBars(container, arr, { active: [j, minIdx], sorted: [...sorted] });
-      updateStats(el.comps, el.swaps, el.time, s.comps, s.swaps, Date.now() - s.start);
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
       await simWait();
       if (arr[j] < arr[minIdx]) minIdx = j;
     }
@@ -316,7 +349,7 @@ async function insertionSort(arr, container, s, el) {
       arr[j + 1] = arr[j];
       s.swaps++;
       renderBars(container, arr, { active: [j, j + 1], sorted: [...sorted] });
-      updateStats(el.comps, el.swaps, el.time, s.comps, s.swaps, Date.now() - s.start);
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
       await simWait();
       j--;
     }
@@ -337,7 +370,7 @@ async function quickSort(arr, container, s, el) {
       if (state.stopFlag) return -1;
       s.comps++;
       renderBars(container, arr, { active: [j, high], sorted: [...sortedSet] });
-      updateStats(el.comps, el.swaps, el.time, s.comps, s.swaps, Date.now() - s.start);
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
       await simWait();
       if (arr[j] <= pivot) {
         i++;
@@ -357,6 +390,7 @@ async function quickSort(arr, container, s, el) {
 
   while (stack.length) {
     if (state.stopFlag) return false;
+    if (stack.length > s.stackMax) s.stackMax = stack.length;
     const [low, high] = stack.pop();
     if (low >= high) {
       if (low >= 0) sortedSet.add(low);
@@ -380,7 +414,7 @@ async function mergeSort(arr, container, s, el) {
       if (state.stopFlag) return false;
       s.comps++;
       renderBars(container, arr, { active: [k, mid + 1 + j] });
-      updateStats(el.comps, el.swaps, el.time, s.comps, s.swaps, Date.now() - s.start);
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
       await simWait();
       if (L[i] <= R[j]) { arr[k++] = L[i++]; }
       else               { arr[k++] = R[j++]; s.swaps++; }
@@ -391,13 +425,17 @@ async function mergeSort(arr, container, s, el) {
     return true;
   }
 
+  let currentDepth = 0;
   async function sort(left, right) {
-    if (left >= right) return true;
+    currentDepth++;
+    if (currentDepth > s.stackMax) s.stackMax = currentDepth;
+    if (left >= right) { currentDepth--; return true; }
     if (state.stopFlag) return false;
     const mid = Math.floor((left + right) / 2);
     if (!await sort(left, mid)) return false;
     if (!await sort(mid + 1, right)) return false;
     if (!await merge(left, mid, right)) return false;
+    currentDepth--;
     return true;
   }
 
@@ -417,7 +455,7 @@ async function heapSort(arr, container, s, el) {
       if (state.stopFlag) return false;
       s.comps++;
       renderBars(container, arr, { active: [largest, l], sorted: [...sorted] });
-      updateStats(el.comps, el.swaps, el.time, s.comps, s.swaps, Date.now() - s.start);
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
       await simWait();
       if (arr[l] > arr[largest]) largest = l;
     }
@@ -426,7 +464,7 @@ async function heapSort(arr, container, s, el) {
       if (state.stopFlag) return false;
       s.comps++;
       renderBars(container, arr, { active: [largest, r], sorted: [...sorted] });
-      updateStats(el.comps, el.swaps, el.time, s.comps, s.swaps, Date.now() - s.start);
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
       await simWait();
       if (arr[r] > arr[largest]) largest = r;
     }
@@ -471,7 +509,7 @@ async function shellSort(arr, container, s, el) {
         if (state.stopFlag) return false;
         s.comps++;
         renderBars(container, arr, { active: [j, j - gap] });
-        updateStats(el.comps, el.swaps, el.time, s.comps, s.swaps, Date.now() - s.start);
+        updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
         await simWait();
         if (arr[j - gap] > temp) {
           arr[j] = arr[j - gap];
@@ -488,16 +526,103 @@ async function shellSort(arr, container, s, el) {
   return true;
 }
 
-const ALGOS = { bubble: bubbleSort, selection: selectionSort, insertion: insertionSort, quick: quickSort, merge: mergeSort, heap: heapSort, shell: shellSort };
+async function countingSort(arr, container, s, el) {
+  const n = arr.length;
+  if (n === 0) return true;
+  let max = arr[0];
+  for (let i = 1; i < n; i++) {
+    if (state.stopFlag) return false;
+    s.comps++;
+    renderBars(container, arr, { active: [i] });
+    updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
+    await simWait();
+    if (arr[i] > max) max = arr[i];
+  }
+  
+  const count = new Array(max + 1).fill(0);
+  const output = new Array(n).fill(0);
+  
+  for (let i = 0; i < n; i++) {
+    if (state.stopFlag) return false;
+    count[arr[i]]++;
+    renderBars(container, arr, { active: [i] });
+    updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
+    await simWait();
+  }
+  
+  for (let i = 1; i <= max; i++) count[i] += count[i - 1];
+  
+  for (let i = n - 1; i >= 0; i--) {
+    if (state.stopFlag) return false;
+    output[count[arr[i]] - 1] = arr[i];
+    count[arr[i]]--;
+  }
+
+  const sorted = new Set();
+  for (let i = 0; i < n; i++) {
+    if (state.stopFlag) return false;
+    arr[i] = output[i];
+    s.swaps++; 
+    sorted.add(i);
+    renderBars(container, arr, { swap: [i], sorted: [...sorted] });
+    updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
+    await simWait();
+  }
+  return true;
+}
+
+async function radixSort(arr, container, s, el) {
+  const n = arr.length;
+  if (n === 0) return true;
+  let max = arr[0];
+  for (let i = 1; i < n; i++) {
+    if (state.stopFlag) return false;
+    s.comps++;
+    if (arr[i] > max) max = arr[i];
+  }
+  
+  for (let exp = 1; Math.floor(max / exp) > 0; exp *= 10) {
+    if (state.stopFlag) return false;
+    const output = new Array(n).fill(0);
+    const count = new Array(10).fill(0);
+    
+    for (let i = 0; i < n; i++) {
+      if (state.stopFlag) return false;
+      count[Math.floor(arr[i] / exp) % 10]++;
+      renderBars(container, arr, { active: [i] });
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
+      await simWait();
+    }
+    
+    for (let i = 1; i < 10; i++) count[i] += count[i - 1];
+    
+    for (let i = n - 1; i >= 0; i--) {
+      output[count[Math.floor(arr[i] / exp) % 10] - 1] = arr[i];
+      count[Math.floor(arr[i] / exp) % 10]--;
+    }
+    
+    for (let i = 0; i < n; i++) {
+      if (state.stopFlag) return false;
+      arr[i] = output[i];
+      s.swaps++;
+      renderBars(container, arr, { swap: [i] });
+      updateStats(el.comps, el.swaps, el.time, el.stack, s.comps, s.swaps, Date.now() - s.start, s.stackMax);
+      await simWait();
+    }
+  }
+  return true;
+}
+
+const ALGOS = { bubble: bubbleSort, selection: selectionSort, insertion: insertionSort, quick: quickSort, merge: mergeSort, heap: heapSort, shell: shellSort, counting: countingSort, radix: radixSort };
 
 /* ── Run Single Sort ────────────────────────────────────── */
-async function runSort(algoKey, arr, container, compsEl, swapsEl, timeEl) {
-  const s = { comps: 0, swaps: 0, start: Date.now() };
-  const el = { comps: compsEl, swaps: swapsEl, time: timeEl };
+async function runSort(algoKey, arr, container, compsEl, swapsEl, timeEl, stackEl) {
+  const s = { comps: 0, swaps: 0, stackMax: 1, start: Date.now() };
+  const el = { comps: compsEl, swaps: swapsEl, time: timeEl, stack: stackEl };
 
   const completed = await ALGOS[algoKey](arr, container, s, el);
   const elapsed = Date.now() - s.start;
-  updateStats(compsEl, swapsEl, timeEl, s.comps, s.swaps, elapsed);
+  updateStats(compsEl, swapsEl, timeEl, stackEl, s.comps, s.swaps, elapsed, s.stackMax);
 
   if (completed) {
     markAllSorted(container, arr);
@@ -509,7 +634,7 @@ async function runSort(algoKey, arr, container, compsEl, swapsEl, timeEl) {
     }
   }
 
-  return { comps: s.comps, swaps: s.swaps, time: elapsed, completed };
+  return { comps: s.comps, swaps: s.swaps, time: elapsed, stack: s.stackMax, completed };
 }
 
 /* ── Sort Orchestration ─────────────────────────────────── */
@@ -519,12 +644,13 @@ async function startSort() {
 
   if (state.mode === 'single') {
     const arr = [...state.arrayA];
-    const result = await runSort(state.algoA, arr, barsA, liveComps, liveSwaps, liveTime);
+    const result = await runSort(state.algoA, arr, barsA, liveComps, liveSwaps, liveTime, liveStack);
     buildPerfCards([{
       algo: state.algoA,
       time: result.time,
       comps: result.comps,
       swaps: result.swaps,
+      stack: result.stack,
       highlight: true,
     }]);
   } else {
@@ -532,12 +658,12 @@ async function startSort() {
     const arrA = [...state.arrayA];
     const arrB = [...state.arrayB];
     const [resultA, resultB] = await Promise.all([
-      runSort(state.algoA, arrA, barsB, liveCompsA, liveSwapsA, liveTimeA),
-      runSort(state.algoB, arrB, barsC, liveCompsB, liveSwapsB, liveTimeB),
+      runSort(state.algoA, arrA, barsB, liveCompsA, liveSwapsA, liveTimeA, liveStackA),
+      runSort(state.algoB, arrB, barsC, liveCompsB, liveSwapsB, liveTimeB, liveStackB),
     ]);
     buildPerfCards([
-      { algo: state.algoA, time: resultA.time, comps: resultA.comps, swaps: resultA.swaps, highlight: true  },
-      { algo: state.algoB, time: resultB.time, comps: resultB.comps, swaps: resultB.swaps, highlight: false },
+      { algo: state.algoA, time: resultA.time, comps: resultA.comps, swaps: resultA.swaps, stack: resultA.stack, highlight: true  },
+      { algo: state.algoB, time: resultB.time, comps: resultB.comps, swaps: resultB.swaps, stack: resultB.stack, highlight: false },
     ]);
   }
 
@@ -550,9 +676,9 @@ function doGenerate() {
   state.arrayB = [...state.arrayA]; // same data for fair compare
 
   // Reset stats
-  updateStats(liveComps, liveSwaps, liveTime, 0, 0, 0);
-  updateStats(liveCompsA, liveSwapsA, liveTimeA, 0, 0, 0);
-  updateStats(liveCompsB, liveSwapsB, liveTimeB, 0, 0, 0);
+  updateStats(liveComps, liveSwaps, liveTime, liveStack, 0, 0, 0, 0);
+  updateStats(liveCompsA, liveSwapsA, liveTimeA, liveStackA, 0, 0, 0, 0);
+  updateStats(liveCompsB, liveSwapsB, liveTimeB, liveStackB, 0, 0, 0, 0);
 
   if (state.mode === 'single') {
     renderBars(barsA, state.arrayA);
@@ -585,6 +711,29 @@ function setMode(mode) {
 }
 
 /* ── Event Wiring ───────────────────────────────────────── */
+
+// Export CSV
+exportBtn.addEventListener('click', () => {
+  let csvContent = "data:text/csv;charset=utf-8,";
+  csvContent += "Algorithm,Best,Average,Worst,Space,Time,Comparisons,Swaps,Max Stack\n";
+  const cards = document.querySelectorAll('.perf-card');
+  if (cards.length === 0) return alert("No performance data to export!");
+
+  cards.forEach(card => {
+    const algo = card.querySelector('.perf-card-name').innerText;
+    const vals = [];
+    card.querySelectorAll('td:nth-child(2)').forEach(td => vals.push(td.innerText));
+    csvContent += `"${algo}","${vals.join('","')}"\n`;
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "sortlab_results.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+});
 
 // Mode buttons
 document.querySelectorAll('.mode-btn').forEach(btn => {
