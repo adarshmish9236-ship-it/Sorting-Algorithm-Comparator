@@ -67,8 +67,8 @@ const customInput        = $('customInput');
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 function getDelay() {
-  // speed 1 → ~120ms, speed 10 → ~2ms
-  return Math.max(2, 130 - state.speed * 13);
+  // speed 1 → ~120ms, speed 10 → ~2ms (Increased speed by 30% by reducing delay)
+  return Math.max(2, (130 - state.speed * 13) * 0.7);
 }
 
 async function simWait() {
@@ -594,6 +594,10 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
 // Algo buttons (single)
 document.querySelectorAll('#algoGrid .algo-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (state.mode === 'compare' && btn.dataset.algo === state.algoB) {
+      alert("Cannot compare the same algorithm! Please select a different one.");
+      return;
+    }
     document.querySelectorAll('#algoGrid .algo-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.algoA = btn.dataset.algo;
@@ -606,6 +610,10 @@ document.querySelectorAll('#algoGrid .algo-btn').forEach(btn => {
 // Algo buttons (compare B)
 document.querySelectorAll('#algoGridB .algo-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (btn.dataset.algo === state.algoA) {
+      alert("Cannot compare the same algorithm! Please select a different one.");
+      return;
+    }
     document.querySelectorAll('#algoGridB .algo-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.algoB = btn.dataset.algo;
